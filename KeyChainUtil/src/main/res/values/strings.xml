@@ -2,7 +2,10 @@
 <resources>
 
     <string name="app_name">KeyChain Utility</string>
-    <string name="hello_world">Hello world!</string>
-    <string name="action_settings">Settings</string>
+    <string name="algorithm_rsa">RSA</string>
+    <string name="algorithm_dsa">DSA</string>
+    <string name="algorithm_ecc">ECC</string>
+    <string name="algorithm_supported">Algorithm is supported</string>
+    <string name="algorithm_bound">Keys are hardware bound</string>
 
 </resources>
