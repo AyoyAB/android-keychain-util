@@ -1,6 +1,7 @@
 package se.ayoy.keychainutil;
 
 import android.app.Activity;
+import android.os.Binder;
 import android.os.Bundle;
 import android.security.KeyChain;
 import android.util.Log;
@@ -35,6 +36,7 @@ public class KeyChainDiagActivity extends Activity {
         this.boundEcc = (TextView) this.findViewById(R.id.ecc_bound);
 
         checkAlgorithmSupport();
+        setTitle();
     }
 
     private void checkAlgorithmSupport() {
@@ -71,5 +73,9 @@ public class KeyChainDiagActivity extends Activity {
         Log.d(TAG, String.format("%s %sbound.", algorithm, isBound ? "" : "not "));
 
         return isBound;
+    }
+
+    private void setTitle() {
+        getActionBar().setTitle(String.format("%s (Uid: %d)", getResources().getText(R.string.app_name), Binder.getCallingUid()));
     }
 }
