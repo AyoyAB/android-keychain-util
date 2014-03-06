@@ -10,6 +10,7 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import java.security.KeyStore;
+import java.security.KeyStoreException;
 
 public class KeyChainDiagActivity extends Activity implements View.OnClickListener {
     private static final String TAG = "KeyChainDiagActivity";
@@ -48,6 +49,8 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
     private Button btnDeleteDsa;
     private Button btnDeleteEcc;
 
+    private KeyStore androidKeyStore;
+
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
@@ -70,6 +73,7 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_key_chain_diag);
 
+        initializeKeyStore();
         initializeTextViews();
         initializeButtons();
 
@@ -77,6 +81,18 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
         checkIfKeysExist();
 
         setTitle();
+    }
+
+    private void initializeKeyStore() {
+        try {
+            this.androidKeyStore = KeyStore.getInstance(KEY_STORE_NAME);
+            this.androidKeyStore.load(null);
+        }
+        catch (Exception e) {
+            Log.e(TAG, "Failed to initialize KeyStore", e);
+
+            throw new RuntimeException(e);
+        }
     }
 
     private void initializeTextViews() {
