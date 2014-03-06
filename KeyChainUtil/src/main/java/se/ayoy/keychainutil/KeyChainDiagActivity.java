@@ -49,10 +49,37 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
     private Button btnDeleteEcc;
 
     @Override
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.btn_rsa_generate:
+            case R.id.btn_dsa_generate:
+            case R.id.btn_ecc_generate:
+            case R.id.btn_rsa_test:
+            case R.id.btn_dsa_test:
+            case R.id.btn_ecc_test:
+            case R.id.btn_rsa_delete:
+            case R.id.btn_dsa_delete:
+            case R.id.btn_ecc_delete:
+            default:
+                // TODO: Implement.
+        }
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_key_chain_diag);
 
+        initializeTextViews();
+        initializeButtons();
+
+        checkAlgorithmSupport();
+        checkIfKeysExist();
+
+        setTitle();
+    }
+
+    private void initializeTextViews() {
         this.supportedRsa = (TextView) this.findViewById(R.id.rsa_supported);
         this.supportedDsa = (TextView) this.findViewById(R.id.dsa_supported);
         this.supportedEcc = (TextView) this.findViewById(R.id.ecc_supported);
@@ -64,7 +91,9 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
         this.keyExistsRsa = (TextView) this.findViewById(R.id.rsa_key_exists);
         this.keyExistsDsa = (TextView) this.findViewById(R.id.dsa_key_exists);
         this.keyExistsEcc = (TextView) this.findViewById(R.id.ecc_key_exists);
+    }
 
+    private void initializeButtons() {
         this.btnGenerateRsa = (Button) this.findViewById(R.id.btn_rsa_generate);
         this.btnGenerateDsa = (Button) this.findViewById(R.id.btn_dsa_generate);
         this.btnGenerateEcc = (Button) this.findViewById(R.id.btn_ecc_generate);
@@ -88,27 +117,6 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
         this.btnDeleteRsa.setOnClickListener(this);
         this.btnDeleteDsa.setOnClickListener(this);
         this.btnDeleteEcc.setOnClickListener(this);
-
-        checkAlgorithmSupport();
-        checkIfKeysExist();
-        setTitle();
-    }
-
-    @Override
-    public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.btn_rsa_generate:
-            case R.id.btn_dsa_generate:
-            case R.id.btn_ecc_generate:
-            case R.id.btn_rsa_test:
-            case R.id.btn_dsa_test:
-            case R.id.btn_ecc_test:
-            case R.id.btn_rsa_delete:
-            case R.id.btn_dsa_delete:
-            case R.id.btn_ecc_delete:
-            default:
-                // TODO: Implement.
-        }
     }
 
     private void checkAlgorithmSupport() {
