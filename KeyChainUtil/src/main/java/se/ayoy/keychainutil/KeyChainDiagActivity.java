@@ -4,13 +4,18 @@ import android.app.Activity;
 import android.os.Binder;
 import android.os.Bundle;
 import android.security.KeyChain;
+import android.security.KeyPairGeneratorSpec;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import javax.security.auth.x500.X500Principal;
+import java.math.BigInteger;
+import java.security.KeyPairGenerator;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
+import java.util.Calendar;
 
 public class KeyChainDiagActivity extends Activity implements View.OnClickListener {
     private static final String TAG = "KeyChainDiagActivity";
@@ -55,12 +60,20 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.btn_rsa_generate:
+                generateRsaKey();
+                checkIfRsaKeyExists();
+                break;
+
             case R.id.btn_dsa_generate:
             case R.id.btn_ecc_generate:
             case R.id.btn_rsa_test:
             case R.id.btn_dsa_test:
             case R.id.btn_ecc_test:
             case R.id.btn_rsa_delete:
+                deleteRsaKey();
+                checkIfRsaKeyExists();
+                break;
+
             case R.id.btn_dsa_delete:
             case R.id.btn_ecc_delete:
             default:
@@ -91,7 +104,7 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
         catch (Exception e) {
             Log.e(TAG, "Failed to initialize KeyStore", e);
 
-            throw new RuntimeException(e);
+            throw new RuntimeException("Failed to initialize KeyStore", e);
         }
     }
 
@@ -228,5 +241,50 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
 
     private void setTitle() {
         getActionBar().setTitle(String.format("%s (Uid: %d)", getResources().getText(R.string.app_name), Binder.getCallingUid()));
+    }
+
+    private void generateRsaKey() {
+        Calendar certificateStartDate = Calendar.getInstance();
+        Calendar certificateEndDate = Calendar.getInstance();
+        certificateEndDate.add(Calendar.YEAR, 1);
+
+        try {
+            // TODO: Figure out if we can set key sizes at API level 18.
+            // TODO: Figure out how we can require encryption.
+            KeyPairGeneratorSpec spec =
+                    new KeyPairGeneratorSpec.Builder(this).
+                            setAlias(KEY_ALIAS_RSA).
+                            //setKeySize(2048).
+                            //setEncryptionRequired().
+                            setSerialNumber(BigInteger.ONE).
+                            setSubject(new X500Principal(String.format("CN=%s", KEY_ALIAS_RSA))).
+                            setStartDate(certificateStartDate.getTime()).
+                            setEndDate(certificateEndDate.getTime()).
+                            build();
+
+            KeyPairGenerator gen = KeyPairGenerator.getInstance(ALGORITHM_RSA, KEY_STORE_NAME);
+            gen.initialize(spec);
+            gen.generateKeyPair();
+
+            Toast.makeText(this, "Test RSA key successfully created.", Toast.LENGTH_SHORT).show();
+        }
+        catch (Exception e) {
+            Log.e(TAG, "Exception caught initializing KeyPairGenerator.", e);
+
+            throw new RuntimeException("Exception caught initializing KeyPairGenerator.", e);
+        }
+    }
+
+    private void deleteRsaKey() {
+        try {
+            androidKeyStore.deleteEntry(KEY_ALIAS_RSA);
+
+            Toast.makeText(this, "Test RSA key successfully deleted.", Toast.LENGTH_SHORT).show();
+        }
+        catch (Exception e) {
+            Log.e(TAG, "Exception caught deleting test RSA key.", e);
+
+            throw new RuntimeException("Exception caught deleting test RSA key.", e);
+        }
     }
 }
