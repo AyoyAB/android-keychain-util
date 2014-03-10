@@ -5,6 +5,7 @@ import android.os.Binder;
 import android.os.Bundle;
 import android.security.KeyChain;
 import android.security.KeyPairGeneratorSpec;
+import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -15,6 +16,7 @@ import javax.security.auth.x500.X500Principal;
 import java.math.BigInteger;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
+import java.security.Signature;
 import java.util.Calendar;
 
 public class KeyChainDiagActivity extends Activity implements View.OnClickListener {
@@ -67,6 +69,9 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
             case R.id.btn_dsa_generate:
             case R.id.btn_ecc_generate:
             case R.id.btn_rsa_test:
+                testRsaKey();
+                break;
+
             case R.id.btn_dsa_test:
             case R.id.btn_ecc_test:
             case R.id.btn_rsa_delete:
@@ -273,6 +278,38 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
 
             throw new RuntimeException("Exception caught initializing KeyPairGenerator.", e);
         }
+    }
+
+    private void testRsaKey() {
+        try {
+            KeyStore.Entry entry = androidKeyStore.getEntry(KEY_ALIAS_RSA, null);
+
+            if (entry == null) {
+                throw new AssertionError(String.format("Key not found: %s", KEY_ALIAS_RSA));
+            }
+
+            if (!(entry instanceof KeyStore.PrivateKeyEntry)) {
+                throw new AssertionError(String.format("Entry is not private key: %s", KEY_ALIAS_RSA));
+            }
+
+            Signature s = Signature.getInstance("SHA256withRSA");
+
+            s.initSign(((KeyStore.PrivateKeyEntry) entry).getPrivateKey());
+
+            s.update(new byte[] { 0x00, 0x01, 0x02, 0x03 });
+
+            byte[] signature = s.sign();
+
+            String result = Base64.encodeToString(signature, Base64.DEFAULT);
+
+            Toast.makeText(this, result, Toast.LENGTH_SHORT).show();
+        }
+        catch (Exception e) {
+            Log.e(TAG, "Exception caught testing RSA key.", e);
+
+            throw new RuntimeException("Exception caught testing RSA key.", e);
+        }
+
     }
 
     private void deleteRsaKey() {
