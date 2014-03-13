@@ -5,7 +5,6 @@ import android.os.Binder;
 import android.os.Bundle;
 import android.security.KeyChain;
 import android.security.KeyPairGeneratorSpec;
-import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -14,9 +13,8 @@ import android.widget.Toast;
 
 import javax.security.auth.x500.X500Principal;
 import java.math.BigInteger;
-import java.security.KeyPairGenerator;
-import java.security.KeyStore;
-import java.security.Signature;
+import java.security.*;
+import java.security.cert.Certificate;
 import java.util.Calendar;
 
 public class KeyChainDiagActivity extends Activity implements View.OnClickListener {
@@ -31,6 +29,10 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
     private static final String KEY_ALIAS_RSA = "RSA Test Key";
     private static final String KEY_ALIAS_DSA = "DSA Test Key";
     private static final String KEY_ALIAS_ECC = "ECC Test Key";
+
+    private static final String SIGNATURE_ALGORITHM_RSA = "SHA256withRSA";
+
+    private static final byte[] DATA_TO_BE_SIGNED = new byte[] { 0x00, 0x01, 0x02, 0x03 };
 
     private TextView supportedRsa;
     private TextView supportedDsa;
@@ -282,34 +284,70 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
 
     private void testRsaKey() {
         try {
-            KeyStore.Entry entry = androidKeyStore.getEntry(KEY_ALIAS_RSA, null);
+            PrivateKey key = getPrivateKeyForAlias(KEY_ALIAS_RSA);
 
-            if (entry == null) {
-                throw new AssertionError(String.format("Key not found: %s", KEY_ALIAS_RSA));
+            byte[] signature = signData(SIGNATURE_ALGORITHM_RSA, key, DATA_TO_BE_SIGNED);
+
+            Certificate cert = getCertificateForAlias(KEY_ALIAS_RSA);
+
+            if (verifyData(SIGNATURE_ALGORITHM_RSA, cert, DATA_TO_BE_SIGNED, signature)) {
+                Toast.makeText(this, "RSA signature test succeeded.", Toast.LENGTH_SHORT).show();
             }
-
-            if (!(entry instanceof KeyStore.PrivateKeyEntry)) {
-                throw new AssertionError(String.format("Entry is not private key: %s", KEY_ALIAS_RSA));
+            else {
+                Toast.makeText(this, "RSA signature test failed!", Toast.LENGTH_SHORT).show();
             }
-
-            Signature s = Signature.getInstance("SHA256withRSA");
-
-            s.initSign(((KeyStore.PrivateKeyEntry) entry).getPrivateKey());
-
-            s.update(new byte[] { 0x00, 0x01, 0x02, 0x03 });
-
-            byte[] signature = s.sign();
-
-            String result = Base64.encodeToString(signature, Base64.DEFAULT);
-
-            Toast.makeText(this, result, Toast.LENGTH_SHORT).show();
         }
         catch (Exception e) {
             Log.e(TAG, "Exception caught testing RSA key.", e);
 
             throw new RuntimeException("Exception caught testing RSA key.", e);
         }
+    }
 
+    private byte[] signData(String algorithmName, PrivateKey key, byte[] data) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+        Signature s = Signature.getInstance(algorithmName);
+
+        s.initSign(key);
+
+        s.update(data);
+
+        return s.sign();
+    }
+
+    private Boolean verifyData(String algorithmName, Certificate cert, byte[] data, byte[] signature) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+        Signature s = Signature.getInstance(algorithmName);
+
+        s.initVerify(cert);
+
+        s.update(data);
+
+        return s.verify(signature);
+    }
+
+    private PrivateKey getPrivateKeyForAlias(String alias) throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableEntryException {
+        KeyStore.Entry entry = getEntryForAlias(alias);
+
+        return ((KeyStore.PrivateKeyEntry) entry).getPrivateKey();
+    }
+
+    private Certificate getCertificateForAlias(String alias) throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableEntryException {
+        KeyStore.Entry entry = getEntryForAlias(alias);
+
+        return ((KeyStore.PrivateKeyEntry) entry).getCertificate();
+    }
+
+    private KeyStore.Entry getEntryForAlias(String alias) throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableEntryException {
+        KeyStore.Entry entry = androidKeyStore.getEntry(alias, null);
+
+        if (entry == null) {
+            throw new AssertionError(String.format("Key not found: %s", alias));
+        }
+
+        if (!(entry instanceof KeyStore.PrivateKeyEntry)) {
+            throw new AssertionError(String.format("Entry is not private key: %s", alias));
+        }
+
+        return entry;
     }
 
     private void deleteRsaKey() {
