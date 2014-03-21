@@ -1,7 +1,9 @@
 package se.ayoy.keychainutil;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Bundle;
 import android.security.KeyChain;
 import android.security.KeyPairGeneratorSpec;
@@ -30,7 +32,8 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
     private static final String KEY_ALIAS_DSA = "DSA Test Key";
     private static final String KEY_ALIAS_ECC = "ECC Test Key";
 
-    private static final String SIGNATURE_ALGORITHM_RSA = "SHA256withRSA";
+    private static final String SIGNATURE_ALGORITHM_RSA = "SHA1withRSA";
+    private static final String SIGNATURE_ALGORITHM_DSA = "SHA1withDSA";
 
     private static final byte[] DATA_TO_BE_SIGNED = new byte[] { 0x00, 0x01, 0x02, 0x03 };
 
@@ -69,22 +72,39 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
                 break;
 
             case R.id.btn_dsa_generate:
+                generateDsaKey();
+                checkIfDsaKeyExists();
+                break;
+
             case R.id.btn_ecc_generate:
+                // TODO: Implement.
+                break;
+
             case R.id.btn_rsa_test:
                 testRsaKey();
                 break;
 
             case R.id.btn_dsa_test:
+                testDsaKey();
+                break;
+
             case R.id.btn_ecc_test:
+                // TODO: Implement.
+                break;
+
             case R.id.btn_rsa_delete:
                 deleteRsaKey();
                 checkIfRsaKeyExists();
                 break;
 
             case R.id.btn_dsa_delete:
+                deleteDsaKey();
+                checkIfDsaKeyExists();
+                break;
+
             case R.id.btn_ecc_delete:
-            default:
                 // TODO: Implement.
+                break;
         }
     }
 
@@ -282,25 +302,65 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
         }
     }
 
-    private void testRsaKey() {
+    @TargetApi(Build.VERSION_CODES.KITKAT)
+    private void generateDsaKey() {
+        Calendar certificateStartDate = Calendar.getInstance();
+        Calendar certificateEndDate = Calendar.getInstance();
+        certificateEndDate.add(Calendar.YEAR, 1);
+
         try {
-            PrivateKey key = getPrivateKeyForAlias(KEY_ALIAS_RSA);
+            KeyPairGeneratorSpec spec =
+                    new KeyPairGeneratorSpec.Builder(this).
+                            setAlias(KEY_ALIAS_DSA).
+                            setKeySize(1024).
+                            setKeyType(ALGORITHM_DSA).
+                            setSerialNumber(BigInteger.ONE).
+                            setSubject(new X500Principal(String.format("CN=%s", KEY_ALIAS_DSA))).
+                            setStartDate(certificateStartDate.getTime()).
+                            setEndDate(certificateEndDate.getTime()).
+                            build();
 
-            byte[] signature = signData(SIGNATURE_ALGORITHM_RSA, key, DATA_TO_BE_SIGNED);
+            // NB: We have to "masquerade" as an RSA key pair generator here, but the spec will still work.
+            KeyPairGenerator gen = KeyPairGenerator.getInstance(ALGORITHM_RSA, KEY_STORE_NAME);
+            gen.initialize(spec);
+            gen.generateKeyPair();
 
-            Certificate cert = getCertificateForAlias(KEY_ALIAS_RSA);
+            Toast.makeText(this, "Test DSA key successfully created.", Toast.LENGTH_SHORT).show();
+        }
+        catch (Exception e) {
+            Log.e(TAG, "Exception caught initializing KeyPairGenerator.", e);
 
-            if (verifyData(SIGNATURE_ALGORITHM_RSA, cert, DATA_TO_BE_SIGNED, signature)) {
-                Toast.makeText(this, "RSA signature test succeeded.", Toast.LENGTH_SHORT).show();
+            throw new RuntimeException("Exception caught initializing KeyPairGenerator.", e);
+        }
+    }
+
+    private void testRsaKey() {
+        testKey(KEY_ALIAS_RSA, SIGNATURE_ALGORITHM_RSA);
+    }
+
+    private void testDsaKey() {
+        testKey(KEY_ALIAS_DSA, SIGNATURE_ALGORITHM_DSA);
+    }
+
+    private void testKey(String alias, String algorithm) {
+        try {
+            PrivateKey key = getPrivateKeyForAlias(alias);
+
+            byte[] signature = signData(algorithm, key, DATA_TO_BE_SIGNED);
+
+            Certificate cert = getCertificateForAlias(alias);
+
+            if (verifyData(algorithm, cert, DATA_TO_BE_SIGNED, signature)) {
+                Toast.makeText(this, String.format("%s signature test succeeded.", algorithm), Toast.LENGTH_SHORT).show();
             }
             else {
-                Toast.makeText(this, "RSA signature test failed!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, String.format("%s signature test failed!", algorithm), Toast.LENGTH_SHORT).show();
             }
         }
         catch (Exception e) {
-            Log.e(TAG, "Exception caught testing RSA key.", e);
+            Log.e(TAG, String.format("Exception caught during %s test.", algorithm), e);
 
-            throw new RuntimeException("Exception caught testing RSA key.", e);
+            throw new RuntimeException(String.format("Exception caught during %s test.", algorithm), e);
         }
     }
 
@@ -351,15 +411,23 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
     }
 
     private void deleteRsaKey() {
-        try {
-            androidKeyStore.deleteEntry(KEY_ALIAS_RSA);
+        deleteKey(KEY_ALIAS_RSA);
+    }
 
-            Toast.makeText(this, "Test RSA key successfully deleted.", Toast.LENGTH_SHORT).show();
+    private void deleteDsaKey() {
+        deleteKey(KEY_ALIAS_DSA);
+    }
+
+    private void deleteKey(String alias) {
+        try {
+            androidKeyStore.deleteEntry(alias);
+
+            Toast.makeText(this, String.format("Test key \"%s\" successfully deleted.", alias), Toast.LENGTH_SHORT).show();
         }
         catch (Exception e) {
-            Log.e(TAG, "Exception caught deleting test RSA key.", e);
+            Log.e(TAG, String.format("Exception caught deleting test key \"%s\".", alias), e);
 
-            throw new RuntimeException("Exception caught deleting test RSA key.", e);
+            throw new RuntimeException(String.format("Exception caught deleting test key \"%s\".", alias), e);
         }
     }
 }
