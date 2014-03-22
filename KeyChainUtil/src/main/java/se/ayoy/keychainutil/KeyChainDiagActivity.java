@@ -258,6 +258,8 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
             else {
                 Log.d(TAG, String.format("Test key \"%s\" does not exist.", alias));
 
+                existsView.setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.checkbox_off_background, 0, 0, 0);
+
                 generateButton.setEnabled(true);
                 testButton.setEnabled(false);
                 deleteButton.setEnabled(false);
