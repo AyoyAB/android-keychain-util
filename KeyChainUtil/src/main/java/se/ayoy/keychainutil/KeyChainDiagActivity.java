@@ -2,6 +2,7 @@ package se.ayoy.keychainutil;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
@@ -9,6 +10,7 @@ import android.security.KeyChain;
 import android.security.KeyPairGeneratorSpec;
 import android.util.Log;
 import android.view.View;
+import android.view.Window;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -72,17 +74,14 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
         switch (v.getId()) {
             case R.id.btn_rsa_generate:
                 generateRsaKey();
-                checkIfRsaKeyExists();
                 break;
 
             case R.id.btn_dsa_generate:
                 generateDsaKey();
-                checkIfDsaKeyExists();
                 break;
 
             case R.id.btn_ecc_generate:
                 generateEccKey();
-                checkIfEccKeyExists();
                 break;
 
             case R.id.btn_rsa_test:
@@ -117,6 +116,7 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
         setContentView(R.layout.activity_key_chain_diag);
 
         initializeKeyStore();
@@ -279,99 +279,15 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
     }
 
     private void generateRsaKey() {
-        Calendar certificateStartDate = Calendar.getInstance();
-        Calendar certificateEndDate = Calendar.getInstance();
-        certificateEndDate.add(Calendar.YEAR, 1);
-
-        try {
-            // TODO: Figure out if we can set key sizes at API level 18.
-            // TODO: Figure out how we can require encryption.
-            KeyPairGeneratorSpec spec =
-                    new KeyPairGeneratorSpec.Builder(this).
-                            setAlias(KEY_ALIAS_RSA).
-                            //setKeySize(2048).
-                            //setEncryptionRequired().
-                            setSerialNumber(BigInteger.ONE).
-                            setSubject(new X500Principal(String.format("CN=%s", KEY_ALIAS_RSA))).
-                            setStartDate(certificateStartDate.getTime()).
-                            setEndDate(certificateEndDate.getTime()).
-                            build();
-
-            KeyPairGenerator gen = KeyPairGenerator.getInstance(ALGORITHM_RSA, KEY_STORE_NAME);
-            gen.initialize(spec);
-            gen.generateKeyPair();
-
-            Toast.makeText(this, "Test RSA key successfully created.", Toast.LENGTH_SHORT).show();
-        }
-        catch (Exception e) {
-            Log.e(TAG, "Exception caught initializing KeyPairGenerator.", e);
-
-            throw new RuntimeException("Exception caught initializing KeyPairGenerator.", e);
-        }
+        new GenerateRsaKeyTask().execute();
     }
 
-    @TargetApi(Build.VERSION_CODES.KITKAT)
     private void generateDsaKey() {
-        Calendar certificateStartDate = Calendar.getInstance();
-        Calendar certificateEndDate = Calendar.getInstance();
-        certificateEndDate.add(Calendar.YEAR, 1);
-
-        try {
-            KeyPairGeneratorSpec spec =
-                    new KeyPairGeneratorSpec.Builder(this).
-                            setAlias(KEY_ALIAS_DSA).
-                            setKeySize(1024).
-                            setKeyType(ALGORITHM_DSA).
-                            setSerialNumber(BigInteger.ONE).
-                            setSubject(new X500Principal(String.format("CN=%s", KEY_ALIAS_DSA))).
-                            setStartDate(certificateStartDate.getTime()).
-                            setEndDate(certificateEndDate.getTime()).
-                            build();
-
-            // NB: We have to "masquerade" as an RSA key pair generator here, but the spec will still work.
-            KeyPairGenerator gen = KeyPairGenerator.getInstance(ALGORITHM_RSA, KEY_STORE_NAME);
-            gen.initialize(spec);
-            gen.generateKeyPair();
-
-            Toast.makeText(this, "Test DSA key successfully created.", Toast.LENGTH_SHORT).show();
-        }
-        catch (Exception e) {
-            Log.e(TAG, "Exception caught initializing KeyPairGenerator.", e);
-
-            throw new RuntimeException("Exception caught initializing KeyPairGenerator.", e);
-        }
+        new GenerateDsaKeyTask().execute();
     }
 
-    @TargetApi(Build.VERSION_CODES.KITKAT)
     private void generateEccKey() {
-        Calendar certificateStartDate = Calendar.getInstance();
-        Calendar certificateEndDate = Calendar.getInstance();
-        certificateEndDate.add(Calendar.YEAR, 1);
-
-        try {
-            KeyPairGeneratorSpec spec =
-                    new KeyPairGeneratorSpec.Builder(this).
-                            setAlias(KEY_ALIAS_ECC).
-                            setKeyType(ALGORITHM_ECC).
-                            setAlgorithmParameterSpec(new ECGenParameterSpec(CURVE_NAME_ECC)).
-                            setSerialNumber(BigInteger.ONE).
-                            setSubject(new X500Principal(String.format("CN=%s", KEY_ALIAS_DSA))).
-                            setStartDate(certificateStartDate.getTime()).
-                            setEndDate(certificateEndDate.getTime()).
-                            build();
-
-            // NB: We have to "masquerade" as an RSA key pair generator here, but the spec will still work.
-            KeyPairGenerator gen = KeyPairGenerator.getInstance(ALGORITHM_RSA, KEY_STORE_NAME);
-            gen.initialize(spec);
-            gen.generateKeyPair();
-
-            Toast.makeText(this, "Test ECC key successfully created.", Toast.LENGTH_SHORT).show();
-        }
-        catch (Exception e) {
-            Log.e(TAG, "Exception caught initializing KeyPairGenerator.", e);
-
-            throw new RuntimeException("Exception caught initializing KeyPairGenerator.", e);
-        }
+        new GenerateEccKeyTask().execute();
     }
 
     private void testRsaKey() {
@@ -476,6 +392,179 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
             Log.e(TAG, String.format("Exception caught deleting test key \"%s\".", alias), e);
 
             throw new RuntimeException(String.format("Exception caught deleting test key \"%s\".", alias), e);
+        }
+    }
+
+    private class GenerateRsaKeyTask extends AsyncTask<Void, Void, Boolean> {
+        private static final String TAG = "GenerateRsaKeyTask";
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+
+            setProgressBarIndeterminateVisibility(true);
+        }
+
+        @Override
+        protected Boolean doInBackground(Void... params) {
+            Calendar certificateStartDate = Calendar.getInstance();
+            Calendar certificateEndDate = Calendar.getInstance();
+            certificateEndDate.add(Calendar.YEAR, 1);
+
+            KeyPairGeneratorSpec spec =
+                    new KeyPairGeneratorSpec.Builder(KeyChainDiagActivity.this).
+                            setAlias(KEY_ALIAS_RSA).
+                            setSerialNumber(BigInteger.ONE).
+                            setSubject(new X500Principal(String.format("CN=%s", KEY_ALIAS_RSA))).
+                            setStartDate(certificateStartDate.getTime()).
+                            setEndDate(certificateEndDate.getTime()).
+                            build();
+
+            try {
+                KeyPairGenerator gen = KeyPairGenerator.getInstance(ALGORITHM_RSA, KEY_STORE_NAME);
+                gen.initialize(spec);
+                gen.generateKeyPair();
+
+                return true;
+            }
+            catch (Exception e) {
+                Log.e(TAG, "Exception caught generating RSA test key.", e);
+
+                return false;
+            }
+        }
+
+        @Override
+        protected void onPostExecute(Boolean result) {
+            super.onPostExecute(result);
+
+            setProgressBarIndeterminateVisibility(false);
+
+            if (result) {
+                Toast.makeText(KeyChainDiagActivity.this, "Test RSA key successfully created.", Toast.LENGTH_SHORT).show();
+                checkIfRsaKeyExists();
+            }
+            else {
+                Toast.makeText(KeyChainDiagActivity.this, "Test RSA key generation failed.", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private class GenerateDsaKeyTask extends AsyncTask<Void, Void, Boolean> {
+        private static final String TAG = "GenerateDsaKeyTask";
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+
+            setProgressBarIndeterminateVisibility(true);
+        }
+
+        @Override
+        @TargetApi(Build.VERSION_CODES.KITKAT)
+        protected Boolean doInBackground(Void... params) {
+            Calendar certificateStartDate = Calendar.getInstance();
+            Calendar certificateEndDate = Calendar.getInstance();
+            certificateEndDate.add(Calendar.YEAR, 1);
+
+            try {
+                KeyPairGeneratorSpec spec =
+                        new KeyPairGeneratorSpec.Builder(KeyChainDiagActivity.this).
+                                setAlias(KEY_ALIAS_DSA).
+                                setKeySize(1024).
+                                setKeyType(ALGORITHM_DSA).
+                                setSerialNumber(BigInteger.ONE).
+                                setSubject(new X500Principal(String.format("CN=%s", KEY_ALIAS_DSA))).
+                                setStartDate(certificateStartDate.getTime()).
+                                setEndDate(certificateEndDate.getTime()).
+                                build();
+
+                // NB: We have to "masquerade" as an RSA key pair generator here, but the spec will still work.
+                KeyPairGenerator gen = KeyPairGenerator.getInstance(ALGORITHM_RSA, KEY_STORE_NAME);
+                gen.initialize(spec);
+                gen.generateKeyPair();
+
+                return true;
+            }
+            catch (Exception e) {
+                Log.e(TAG, "Exception caught generating DSA test key.", e);
+
+                return false;
+            }
+        }
+
+        @Override
+        protected void onPostExecute(Boolean result) {
+            super.onPostExecute(result);
+
+            setProgressBarIndeterminateVisibility(false);
+
+            if (result) {
+                Toast.makeText(KeyChainDiagActivity.this, "Test DSA key successfully created.", Toast.LENGTH_SHORT).show();
+                checkIfDsaKeyExists();
+            }
+            else {
+                Toast.makeText(KeyChainDiagActivity.this, "Test DSA key generation failed.", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private class GenerateEccKeyTask extends AsyncTask<Void, Void, Boolean> {
+        private static final String TAG = "GenerateEccKeyTask";
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+
+            setProgressBarIndeterminateVisibility(true);
+        }
+
+        @Override
+        @TargetApi(Build.VERSION_CODES.KITKAT)
+        protected Boolean doInBackground(Void... params) {
+            Calendar certificateStartDate = Calendar.getInstance();
+            Calendar certificateEndDate = Calendar.getInstance();
+            certificateEndDate.add(Calendar.YEAR, 1);
+
+            try {
+                KeyPairGeneratorSpec spec =
+                        new KeyPairGeneratorSpec.Builder(KeyChainDiagActivity.this).
+                                setAlias(KEY_ALIAS_ECC).
+                                setKeyType(ALGORITHM_ECC).
+                                setAlgorithmParameterSpec(new ECGenParameterSpec(CURVE_NAME_ECC)).
+                                setSerialNumber(BigInteger.ONE).
+                                setSubject(new X500Principal(String.format("CN=%s", KEY_ALIAS_ECC))).
+                                setStartDate(certificateStartDate.getTime()).
+                                setEndDate(certificateEndDate.getTime()).
+                                build();
+
+                // NB: We have to "masquerade" as an RSA key pair generator here, but the spec will still work.
+                KeyPairGenerator gen = KeyPairGenerator.getInstance(ALGORITHM_RSA, KEY_STORE_NAME);
+                gen.initialize(spec);
+                gen.generateKeyPair();
+
+                return true;
+            }
+            catch (Exception e) {
+                Log.e(TAG, "Exception caught generating ECC test key.", e);
+
+                return false;
+            }
+        }
+
+        @Override
+        protected void onPostExecute(Boolean result) {
+            super.onPostExecute(result);
+
+            setProgressBarIndeterminateVisibility(false);
+
+            if (result) {
+                Toast.makeText(KeyChainDiagActivity.this, "Test ECC key successfully created.", Toast.LENGTH_SHORT).show();
+                checkIfEccKeyExists();
+            }
+            else {
+                Toast.makeText(KeyChainDiagActivity.this, "Test ECC key generation failed.", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 }
