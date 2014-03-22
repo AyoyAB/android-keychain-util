@@ -17,6 +17,7 @@ import javax.security.auth.x500.X500Principal;
 import java.math.BigInteger;
 import java.security.*;
 import java.security.cert.Certificate;
+import java.security.spec.ECGenParameterSpec;
 import java.util.Calendar;
 
 public class KeyChainDiagActivity extends Activity implements View.OnClickListener {
@@ -28,12 +29,15 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
     private static final String ALGORITHM_DSA = "DSA";
     private static final String ALGORITHM_ECC = "EC";
 
+    private static final String CURVE_NAME_ECC = "prime256v1";
+
     private static final String KEY_ALIAS_RSA = "RSA Test Key";
     private static final String KEY_ALIAS_DSA = "DSA Test Key";
     private static final String KEY_ALIAS_ECC = "ECC Test Key";
 
     private static final String SIGNATURE_ALGORITHM_RSA = "SHA1withRSA";
     private static final String SIGNATURE_ALGORITHM_DSA = "SHA1withDSA";
+    private static final String SIGNATURE_ALGORITHM_ECC = "SHA1WithECDSA";
 
     private static final byte[] DATA_TO_BE_SIGNED = new byte[] { 0x00, 0x01, 0x02, 0x03 };
 
@@ -77,7 +81,8 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
                 break;
 
             case R.id.btn_ecc_generate:
-                // TODO: Implement.
+                generateEccKey();
+                checkIfEccKeyExists();
                 break;
 
             case R.id.btn_rsa_test:
@@ -89,7 +94,7 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
                 break;
 
             case R.id.btn_ecc_test:
-                // TODO: Implement.
+                testEccKey();
                 break;
 
             case R.id.btn_rsa_delete:
@@ -103,7 +108,8 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
                 break;
 
             case R.id.btn_ecc_delete:
-                // TODO: Implement.
+                deleteEccKey();
+                checkIfEccKeyExists();
                 break;
         }
     }
@@ -334,12 +340,48 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
         }
     }
 
+    @TargetApi(Build.VERSION_CODES.KITKAT)
+    private void generateEccKey() {
+        Calendar certificateStartDate = Calendar.getInstance();
+        Calendar certificateEndDate = Calendar.getInstance();
+        certificateEndDate.add(Calendar.YEAR, 1);
+
+        try {
+            KeyPairGeneratorSpec spec =
+                    new KeyPairGeneratorSpec.Builder(this).
+                            setAlias(KEY_ALIAS_ECC).
+                            setKeyType(ALGORITHM_ECC).
+                            setAlgorithmParameterSpec(new ECGenParameterSpec(CURVE_NAME_ECC)).
+                            setSerialNumber(BigInteger.ONE).
+                            setSubject(new X500Principal(String.format("CN=%s", KEY_ALIAS_DSA))).
+                            setStartDate(certificateStartDate.getTime()).
+                            setEndDate(certificateEndDate.getTime()).
+                            build();
+
+            // NB: We have to "masquerade" as an RSA key pair generator here, but the spec will still work.
+            KeyPairGenerator gen = KeyPairGenerator.getInstance(ALGORITHM_RSA, KEY_STORE_NAME);
+            gen.initialize(spec);
+            gen.generateKeyPair();
+
+            Toast.makeText(this, "Test ECC key successfully created.", Toast.LENGTH_SHORT).show();
+        }
+        catch (Exception e) {
+            Log.e(TAG, "Exception caught initializing KeyPairGenerator.", e);
+
+            throw new RuntimeException("Exception caught initializing KeyPairGenerator.", e);
+        }
+    }
+
     private void testRsaKey() {
         testKey(KEY_ALIAS_RSA, SIGNATURE_ALGORITHM_RSA);
     }
 
     private void testDsaKey() {
         testKey(KEY_ALIAS_DSA, SIGNATURE_ALGORITHM_DSA);
+    }
+
+    private void testEccKey() {
+        testKey(KEY_ALIAS_ECC, SIGNATURE_ALGORITHM_ECC);
     }
 
     private void testKey(String alias, String algorithm) {
@@ -416,6 +458,10 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
 
     private void deleteDsaKey() {
         deleteKey(KEY_ALIAS_DSA);
+    }
+
+    private void deleteEccKey() {
+        deleteKey(KEY_ALIAS_ECC);
     }
 
     private void deleteKey(String alias) {
