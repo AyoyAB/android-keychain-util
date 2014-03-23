@@ -182,9 +182,21 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
     }
 
     private void checkAlgorithmSupport() {
-        this.btnGenerateRsa.setEnabled(checkAlgorithmSupport(ALGORITHM_RSA, this.supportedRsa, this.boundRsa));
-        this.btnGenerateDsa.setEnabled(checkAlgorithmSupport(ALGORITHM_DSA, this.supportedDsa, this.boundDsa));
-        this.btnGenerateEcc.setEnabled(checkAlgorithmSupport(ALGORITHM_ECC, this.supportedEcc, this.boundEcc));
+        this.btnGenerateRsa.setEnabled(checkRsaAlgorithmSupport());
+        this.btnGenerateDsa.setEnabled(checkDsaAlgorithmSupport());
+        this.btnGenerateEcc.setEnabled(checkEccAlgorithmSupport());
+    }
+
+    private Boolean checkRsaAlgorithmSupport() {
+        return checkAlgorithmSupport(ALGORITHM_RSA, this.supportedRsa, this.boundRsa);
+    }
+
+    private Boolean checkDsaAlgorithmSupport() {
+        return checkAlgorithmSupport(ALGORITHM_DSA, this.supportedDsa, this.boundDsa);
+    }
+
+    private Boolean checkEccAlgorithmSupport() {
+        return checkAlgorithmSupport(ALGORITHM_ECC, this.supportedEcc, this.boundEcc);
     }
 
     private Boolean checkAlgorithmSupport(String algorithm, TextView supportedView, TextView boundView) {
@@ -226,22 +238,22 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
     private void checkIfRsaKeyExists() {
         Log.d(TAG, "Checking RSA test key.");
 
-        checkIfKeyExists(KEY_ALIAS_RSA, this.keyExistsRsa, this.btnGenerateRsa, this.btnTestRsa, this.btnDeleteRsa);
+        checkIfKeyExists(KEY_ALIAS_RSA, ALGORITHM_RSA, this.keyExistsRsa, this.btnGenerateRsa, this.btnTestRsa, this.btnDeleteRsa);
     }
 
     private void checkIfDsaKeyExists() {
         Log.d(TAG, "Checking DSA test key.");
 
-        checkIfKeyExists(KEY_ALIAS_DSA, this.keyExistsDsa, this.btnGenerateDsa, this.btnTestDsa, this.btnDeleteDsa);
+        checkIfKeyExists(KEY_ALIAS_DSA, ALGORITHM_DSA, this.keyExistsDsa, this.btnGenerateDsa, this.btnTestDsa, this.btnDeleteDsa);
     }
 
     private void checkIfEccKeyExists() {
         Log.d(TAG, "Checking ECC test key.");
 
-        checkIfKeyExists(KEY_ALIAS_ECC, this.keyExistsEcc, this.btnGenerateEcc, this.btnTestEcc, this.btnDeleteEcc);
+        checkIfKeyExists(KEY_ALIAS_ECC, ALGORITHM_ECC, this.keyExistsEcc, this.btnGenerateEcc, this.btnTestEcc, this.btnDeleteEcc);
     }
 
-    private void checkIfKeyExists(String alias, TextView existsView, Button generateButton, Button testButton, Button deleteButton) {
+    private void checkIfKeyExists(String alias, String algorithm, TextView existsView, Button generateButton, Button testButton, Button deleteButton) {
         try {
             KeyStore ks = KeyStore.getInstance(KEY_STORE_NAME);
             ks.load(null);
@@ -252,7 +264,9 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
                 existsView.setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.checkbox_on_background, 0, 0, 0);
 
                 generateButton.setEnabled(false);
-                testButton.setEnabled(true);
+                if (isAlgorithmSupported(algorithm)) {
+                    testButton.setEnabled(true);
+                }
                 deleteButton.setEnabled(true);
             }
             else {
@@ -260,7 +274,9 @@ public class KeyChainDiagActivity extends Activity implements View.OnClickListen
 
                 existsView.setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.checkbox_off_background, 0, 0, 0);
 
-                generateButton.setEnabled(true);
+                if (isAlgorithmSupported(algorithm)) {
+                    generateButton.setEnabled(true);
+                }
                 testButton.setEnabled(false);
                 deleteButton.setEnabled(false);
             }
